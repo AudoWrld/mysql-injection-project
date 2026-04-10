@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <title>Setup MFA</title>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&display=swap");
+      * { margin: 0; padding: 0; box-sizing: border-box; font-family: "Poppins", sans-serif; }
+      body { background: linear-gradient(135deg, #f7971e, #ffd200); min-height: 100vh; display: flex; justify-content: center; align-items: center; }
+      .container { background: white; padding: 50px 40px; border-radius: 20px; box-shadow: 0 15px 35px rgba(0,0,0,0.15); width: 440px; max-width: 90%; text-align: center; }
+      h1 { font-size: 24px; color: #333; margin-bottom: 10px; }
+      p { font-size: 14px; color: #666; margin-bottom: 20px; line-height: 1.6; }
+      img { border-radius: 12px; border: 1px solid #eee; margin-bottom: 20px; }
+      .secret { background: #f4f4f4; border-radius: 8px; padding: 10px; font-size: 13px; font-family: monospace; color: #333; word-break: break-all; margin-bottom: 20px; }
+      a { display: inline-block; padding: 12px 30px; background: #f7971e; color: white; border-radius: 10px; text-decoration: none; font-weight: bold; transition: background 0.3s; }
+      a:hover { background: #e08010; }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h1>Set Up MFA</h1>
+      <p>Scan this QR code with <strong>Google Authenticator</strong> or <strong>Authy</strong>, then log in to verify.</p>
+      <img src="data:image/png;base64,{{ qr_b64 }}" width="220" height="220" alt="QR Code" />
+      <p>Or enter this secret manually:</p>
+      <div class="secret">{{ secret }}</div>
+      <a href="/">Go to Login</a>
+    </div>
+  </body>
+</html>
