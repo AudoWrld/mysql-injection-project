@@ -1,23 +1,43 @@
 from flask import Flask, render_template, request, redirect, session, flash
-import mysql.connector
+import sqlite3
 import pyotp
 import qrcode
 import io
 import base64
 import re
+import os
 
 app = Flask(__name__)
 app.secret_key = "secret_key"
 
-db = mysql.connector.connect(
-    host="localhost",
-    user="injectionuser",
-    password="injectionpass",
-    database="mysql_injection",
-)
-cursor = db.cursor(dictionary=True)
-
+DB_PATH = "sql.db"
 MAX_ATTEMPTS = 3
+
+
+def get_db():
+    conn = sqlite3.connect(DB_PATH)
+    conn.row_factory = sqlite3.Row
+    return conn
+
+
+def init_db():
+    if not os.path.exists(DB_PATH):
+        conn = get_db()
+        cursor = conn.cursor()
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS user (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                username TEXT UNIQUE NOT NULL,
+                password TEXT NOT NULL,
+                totp_secret TEXT NOT NULL,
+                failed_attempts INTEGER DEFAULT 0,
+                is_locked INTEGER DEFAULT 0
+            )
+        """
+        )
+        conn.commit()
+        conn.close()
 
 
 def is_strong_password(password):
@@ -40,46 +60,55 @@ def login():
         username = request.form["username"]
         password = request.form["password"]
 
-        query = "SELECT * FROM user WHERE username = %s AND password = %s"
-        cursor.execute(query, (username, password))
+        conn = get_db()
+        cursor = conn.cursor()
+
+        cursor.execute(
+            "SELECT * FROM user WHERE username = ? AND password = ?",
+            (username, password),
+        )
         user = cursor.fetchone()
 
         if user:
             if user["is_locked"]:
                 flash("Account is locked due to too many failed attempts.")
+                conn.close()
                 return redirect("/")
 
             cursor.execute(
-                "UPDATE user SET failed_attempts = 0 WHERE username = %s", (username,)
+                "UPDATE user SET failed_attempts = 0 WHERE username = ?", (username,)
             )
-            db.commit()
+            conn.commit()
+            conn.close()
 
             session["mfa_user"] = username
             return redirect("/mfa")
         else:
-            cursor.execute("SELECT * FROM user WHERE username = %s", (username,))
+            cursor.execute("SELECT * FROM user WHERE username = ?", (username,))
             existing = cursor.fetchone()
 
             if existing:
                 new_attempts = existing["failed_attempts"] + 1
                 if new_attempts >= MAX_ATTEMPTS:
                     cursor.execute(
-                        "UPDATE user SET failed_attempts = %s, is_locked = 1 WHERE username = %s",
+                        "UPDATE user SET failed_attempts = ?, is_locked = 1 WHERE username = ?",
                         (new_attempts, username),
                     )
-                    db.commit()
+                    conn.commit()
                     flash(f"Account locked after {MAX_ATTEMPTS} failed attempts.")
                 else:
                     cursor.execute(
-                        "UPDATE user SET failed_attempts = %s WHERE username = %s",
+                        "UPDATE user SET failed_attempts = ? WHERE username = ?",
                         (new_attempts, username),
                     )
-                    db.commit()
+                    conn.commit()
                     flash(
                         f"Invalid credentials. {MAX_ATTEMPTS - new_attempts} attempt(s) remaining."
                     )
             else:
                 flash("Invalid credentials.")
+
+            conn.close()
 
         return redirect("/")
 
@@ -92,8 +121,12 @@ def mfa():
         return redirect("/")
 
     username = session["mfa_user"]
-    cursor.execute("SELECT * FROM user WHERE username = %s", (username,))
+
+    conn = get_db()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM user WHERE username = ?", (username,))
     user = cursor.fetchone()
+    conn.close()
 
     if request.method == "POST":
         token = request.form["token"]
@@ -121,20 +154,25 @@ def register():
             flash(f"Weak password: {message}")
             return redirect("/register")
 
-        cursor.execute("SELECT * FROM user WHERE username = %s", (username,))
+        conn = get_db()
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT * FROM user WHERE username = ?", (username,))
         if cursor.fetchone():
             flash("Username already exists.")
+            conn.close()
             return redirect("/register")
 
         totp_secret = pyotp.random_base32()
         cursor.execute(
-            "INSERT INTO user (username, password, totp_secret) VALUES (%s, %s, %s)",
+            "INSERT INTO user (username, password, totp_secret) VALUES (?, ?, ?)",
             (username, password, totp_secret),
         )
-        db.commit()
+        conn.commit()
+        conn.close()
 
         totp = pyotp.TOTP(totp_secret)
-        uri = totp.provisioning_uri(name=username, issuer_name="MySQL Injection Lab")
+        uri = totp.provisioning_uri(name=username, issuer_name="SQLite Injection Lab")
         img = qrcode.make(uri)
         buf = io.BytesIO()
         img.save(buf, format="PNG")
@@ -163,4 +201,5 @@ def logout():
 
 
 if __name__ == "__main__":
+    init_db()
     app.run(debug=True)
