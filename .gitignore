@@ -37,3 +37,7 @@ pytest_cache/
 
 # Environment variables
 *.env
+
+# DB 
+*.sqlite3
+/sql.db
