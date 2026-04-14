@@ -1,29 +1,23 @@
 import requests
 import time
 import datetime
+import sqlite3
 
 url = "http://127.0.0.1:5000/"
-username = "admin"
+username = "audowrld"
 
 wordlist = ["123456", "admin", "password", "admin123", "letmein", "AudoWrld@59"]
 
 
 def reset_lock():
-    import mysql.connector
-
-    db = mysql.connector.connect(
-        host="localhost",
-        user="injectionuser",
-        password="injectionpass",
-        database="mysql_injection",
-    )
-    cursor = db.cursor()
+    conn = sqlite3.connect("sql.db")
+    cursor = conn.cursor()
     cursor.execute(
-        "UPDATE user SET failed_attempts = 0, is_locked = 0 WHERE username = %s",
+        "UPDATE user SET failed_attempts = 0, is_locked = 0 WHERE username = ?",
         (username,),
     )
-    db.commit()
-    db.close()
+    conn.commit()
+    conn.close()
 
 
 session = requests.Session()
@@ -58,8 +52,7 @@ for i, pwd in enumerate(wordlist):
         )
 
     if "/mfa" in response.url or "mfa" in response.text.lower():
-        crack_time = time.time() - start_time
-        end_dt = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        attempt_time = datetime.datetime.now().strftime("%H:%M:%S")
         print(f"  [{attempt_time}] [+] FOUND: {pwd}")
         found = True
         found_pwd = pwd
