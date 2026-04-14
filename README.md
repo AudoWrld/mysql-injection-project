@@ -173,5 +173,5 @@ This is for **educational use only**. Do not use this code in any live project o
 
 ## ✨ Credits
 
-Made with 💻 by [Victor Owino]  
+Made with 💻 by  [Victor Owino](https://github.com/AudoWrld/)
 Inspired by common security flaws in beginner backend apps.
